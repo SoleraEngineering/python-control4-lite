@@ -1,4 +1,4 @@
-# Control4 Bindings for Python
+# Control4 API Bindings for Python
 
 
 

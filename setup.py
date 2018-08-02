@@ -2,23 +2,22 @@
 # -*- coding:utf-8 -*-
 
 import io
-from distutils.core import setup
+from setuptools import setup
 
 version = '0.1.0'
 
 setup(
-    name='python-control4',
+    name='python-control4-lite',
     version=version,
-    description='Python bindings for Control4 API',
+    description='Python Bindings for Control4 API',
     keywords='control4',
     author='Aleksi Asikainen',
-    author_email='aleksi.asikainen@gmail.com',
+    author_email='aleksi.asikainen@solera.com',
     url='https://github.com/r3pi/python-control4',
     packages=['control4',],
     install_requires=['requests>=1.0.0',],
-    entry_points={
-      'console_scripts': ['control4=control4.command_line:main']
-    },
-    license='Creative Commons Attribution-Noncommercial-Share Alike license',
+    license='MIT',
     long_description=io.open('README.txt', encoding='UTF-8').read(),
+    test_suite='nose.collector',
+    tests_require=['nose']
 )
