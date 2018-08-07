@@ -10,7 +10,6 @@ class Control4(object):
     def __init__(self, url):
         _LOGGER.debug('init: %s', url)
         self._url = url
-        self._session = aiohttp.ClientSession(raise_for_status=True)
 
     async def on(self, device_id):
         return self.issue_command(device_id, "ON")
@@ -26,7 +25,7 @@ class Control4(object):
             params = {}
 
         _LOGGER.debug('issue_command: cmd %s, device %d, params %s', command, device_id, str(params))
-        async with self._session as session:
+        async with aiohttp.ClientSession() as session:
             json_request = {'command': command, 'deviceId': device_id, 'params': params}
 
             async with session.post(self._url, json=json_request) as r:
@@ -38,7 +37,7 @@ class Control4(object):
     async def get(self, device_id, variable_id):
         _LOGGER.debug('get: device_id %d, variable_id %d', device_id, variable_id)
 
-        async with self._session as session:
+        async with aiohttp.ClientSession() as session:
             query_params = {'deviceid': device_id, 'variableid': variable_id}
 
             async with session.get(self._url, params=query_params) as r:
