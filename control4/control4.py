@@ -31,7 +31,7 @@ class Control4(object):
 
             async with session.post(self._url, json=json_request) as r:
                 _LOGGER.debug('issue_command URL: %s', r.url)
-                result = await r.json()
+                result = await r.json(content_type=None)
                 _LOGGER.debug('issue_command response: %s', str(result))
                 return result
 
@@ -43,6 +43,6 @@ class Control4(object):
 
             async with session.get(self._url, params=query_params) as r:
                 _LOGGER.debug('get URL: %s', r.url)
-                result = await r.json()
+                result = await r.json(content_type=None)
                 _LOGGER.debug('get response: %s', str(result))
                 return result['variablevalue']
