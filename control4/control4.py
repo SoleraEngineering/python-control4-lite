@@ -12,13 +12,13 @@ class Control4(object):
         self._url = url
 
     async def on(self, device_id):
-        return self.issue_command(device_id, "ON")
+        return await self.issue_command(device_id, "ON")
 
     async def off(self, device_id):
-        return self.issue_command(device_id, "OFF")
+        return await self.issue_command(device_id, "OFF")
 
     async def set_level(self, device_id, level):
-        return self.issue_command(device_id, "SET_LEVEL", {"LEVEL": level})
+        return await self.issue_command(device_id, "SET_LEVEL", {"LEVEL": level})
 
     async def issue_command(self, device_id, command, params=None):
         if params is None:
