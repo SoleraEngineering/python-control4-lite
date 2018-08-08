@@ -2,8 +2,37 @@
 
 import aiohttp
 import logging
+import time
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class Control4RetryError(TimeoutError):
+    pass
+
+
+class Control4TimeoutError(TimeoutError):
+    pass
+
+
+def retry(times=10, timeout_secs=10):
+    def func_wrapper(f):
+        async def wrapper(*args, **kwargs):
+            start_time = time.time()
+
+            for t in range(times):
+                try:
+                    return await f(*args, **kwargs)
+                except aiohttp.ClientResponseError as exc:
+                    _LOGGER.debug('Received error response from Control4: %s', str(exc))
+
+                    if timeout_secs is not None:
+                        if time.time() - start_time > timeout_secs:
+                            raise Control4TimeoutError()
+
+            raise Control4RetryError
+        return wrapper
+    return func_wrapper
 
 
 class Control4(object):
@@ -24,24 +53,31 @@ class Control4(object):
         if params is None:
             params = {}
 
-        _LOGGER.debug('issue_command: cmd %s, device %d, params %s', command, device_id, str(params))
-        async with aiohttp.ClientSession() as session:
-            json_request = {'command': command, 'deviceId': device_id, 'params': params}
+        _LOGGER.debug('issue_command: cmd %s, device %d, params %s, url %s', command, device_id, str(params), self._url)
 
-            async with session.post(self._url, json=json_request) as r:
-                _LOGGER.debug('issue_command URL: %s', r.url)
-                result = await r.json(content_type=None)
-                _LOGGER.debug('issue_command response: %s', str(result))
-                return result
+        async with aiohttp.ClientSession(raise_for_status=True) as session:
+            json_request = {'command': command, 'deviceid': device_id, 'params': params}
+
+            @retry
+            def post_request():
+                async with session.post(self._url, json=json_request) as r:
+                    result = await r.text()
+                    _LOGGER.debug('issue_command response: (%d) %s', r.status, str(result))
+                    return result
+
+            return await post_request()
 
     async def get(self, device_id, variable_id):
         _LOGGER.debug('get: device_id %d, variable_id %d', device_id, variable_id)
 
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(raise_for_status=True) as session:
             query_params = {'deviceid': device_id, 'variableid': variable_id}
 
-            async with session.get(self._url, params=query_params) as r:
-                _LOGGER.debug('get URL: %s', r.url)
-                result = await r.json(content_type=None)
-                _LOGGER.debug('get response: %s', str(result))
-                return result['variablevalue']
+            @retry
+            def get_request():
+                async with session.get(self._url, params=query_params) as r:
+                    result = await r.json(content_type=None)
+                    _LOGGER.debug('get response for (%s): (%d) %s', r.url, r.status, str(result))
+                    return result['variablevalue']
+
+            return await get_request()
