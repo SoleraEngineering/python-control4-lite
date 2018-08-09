@@ -6,6 +6,8 @@ import time
 import asyncio
 import traceback
 import json
+import requests
+import urllib3
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,7 +28,7 @@ def retry(times=20, timeout_secs=10):
             for t in range(times):
                 try:
                     return await f(*args, **kwargs)
-                except aiohttp.ClientError as exc:
+                except (aiohttp.ClientError, ConnectionError, requests.RequestException, urllib3.exceptions.HTTPError) as exc:
                     _LOGGER.debug('Received error response from Control4: %s, %s', str(exc), repr(traceback.format_exc()))
 
                     # if isinstance(exc, aiohttp.ClientResponseError):
@@ -48,6 +50,7 @@ class Control4(object):
         _LOGGER.debug('init: %s', url)
         self._url = url
         self._session = session
+        self._urllib3 = urllib3.PoolManager()
 
     async def on(self, device_id):
         return await self.issue_command(device_id, "ON")
@@ -84,15 +87,38 @@ class Control4(object):
 
     @retry()
     async def _post_request(self, json_request):
+        # print('post request')
+
+        r = self._urllib3.request(
+            'POST',
+            self._url,
+            body=json.dumps(json_request).encode('ascii'),
+            headers={'Content-Type':'application/json'}
+        )
+
+        return r.data.decode('ascii')
+
+        # r = requests.put(self._url, json=json_request)
+        # r.raise_for_status()
+        # return r.text
+
         # async with self._get_session().post(self._url, json=json_request) as r:
 
-        async with self._get_session().post(self._url, data=json.dumps(json_request, separators=(',',':')), headers={'content-type': 'application/json'}) as r:
-            result = await r.text()
+        # async with self._get_session().post(self._url, data=json.dumps(json_request, separators=(',',':')), headers={'content-type': 'application/json'}) as r:
+        #     result = await r.text()
+        #
+        #     r.raise_for_status()
+        #
+        #     _LOGGER.debug('issue_command response: (%d) %s -- %s', r.status, str(result), str(r.request_info))
+        #     return result
 
-            r.raise_for_status()
-
-            _LOGGER.debug('issue_command response: (%d) %s -- %s', r.status, str(result), str(r.request_info))
-            return result
+        # async with aiohttp.post(self._url, data=json.dumps(json_request, separators=(',',':')), headers={'content-type': 'application/json'}) as r:
+        #     result = await r.text()
+        #
+        #     r.raise_for_status()
+        #
+        #     _LOGGER.debug('issue_command response: (%d) %s -- %s', r.status, str(result), str(r.request_info))
+        #     return result
 
     @retry()
     async def _get_request(self, query_params):
