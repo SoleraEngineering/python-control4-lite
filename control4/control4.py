@@ -39,9 +39,10 @@ def retry(times=10, timeout_secs=10):
 
 
 class Control4(object):
-    def __init__(self, url):
+    def __init__(self, url, session=None):
         _LOGGER.debug('init: %s', url)
         self._url = url
+        self._session = session
 
     async def on(self, device_id):
         return await self.issue_command(device_id, "ON")
@@ -69,19 +70,27 @@ class Control4(object):
 
         return await self._get_request(query_params)
 
+    def _get_session(self) -> aiohttp.ClientSession:
+        if self._session is None:
+            self._session = aiohttp.ClientSession()
+
+        return self._session
+
     @retry()
     async def _post_request(self, json_request):
-        async with aiohttp.ClientSession(raise_for_status=True) as session:
-            async with session.post(self._url, json=json_request) as r:
-                result = await r.text()
-                _LOGGER.debug('issue_command response: (%d) %s -- %s', r.status, str(result), str(r.request_info))
-                return result
+        async with self._get_session().post(self._url, json=json_request) as r:
+            r.raise_for_status()
+
+            result = await r.text()
+            _LOGGER.debug('issue_command response: (%d) %s -- %s', r.status, str(result), str(r.request_info))
+            return result
 
     @retry()
     async def _get_request(self, query_params):
-        async with aiohttp.ClientSession(raise_for_status=True) as session:
-            async with session.get(self._url, params=query_params) as r:
-                result = await r.json(content_type=None)
-                _LOGGER.debug('get response for (%s): (%d) %s -- %s', r.url, r.status, str(result), str(r.request_info))
-                return result['variablevalue']
+        async with self._get_session().get(self._url, params=query_params) as r:
+            r.raise_for_status()
+
+            result = await r.json(content_type=None)
+            _LOGGER.debug('get response for (%s): (%d) %s -- %s', r.url, r.status, str(result), str(r.request_info))
+            return result['variablevalue']
 
