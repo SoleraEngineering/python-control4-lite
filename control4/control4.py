@@ -24,14 +24,14 @@ def retry(times=10, timeout_secs=10):
             for t in range(times):
                 try:
                     return await f(*args, **kwargs)
-                except aiohttp.ClientResponseError as exc:
+                except aiohttp.ClientError as exc:
                     _LOGGER.debug('Received error response from Control4: %s', str(exc))
 
                     if timeout_secs is not None:
                         if time.time() - start_time > timeout_secs:
                             raise Control4TimeoutError()
 
-                    await asyncio.sleep(10 * t)
+                    await asyncio.sleep(0.01 * t)
 
             raise Control4RetryError
         return wrapper
