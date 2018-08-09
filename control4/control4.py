@@ -4,6 +4,7 @@ import aiohttp
 import logging
 import time
 import asyncio
+import traceback
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ class Control4TimeoutError(TimeoutError):
     pass
 
 
-def retry(times=10, timeout_secs=10):
+def retry(times=20, timeout_secs=10):
     def func_wrapper(f):
         async def wrapper(*args, **kwargs):
             start_time = time.time()
@@ -25,13 +26,16 @@ def retry(times=10, timeout_secs=10):
                 try:
                     return await f(*args, **kwargs)
                 except aiohttp.ClientError as exc:
-                    _LOGGER.debug('Received error response from Control4: %s', str(exc))
+                    _LOGGER.debug('Received error response from Control4: %s, %s', str(exc), repr(traceback.format_exc()))
+
+                    # if isinstance(exc, aiohttp.ClientResponseError):
+                    #    traceback.print_exc()
 
                     if timeout_secs is not None:
                         if time.time() - start_time > timeout_secs:
                             raise Control4TimeoutError()
 
-                    await asyncio.sleep(0.01 * t)
+                    await asyncio.sleep(0.1 * t)
 
             raise Control4RetryError
         return wrapper
@@ -79,18 +83,19 @@ class Control4(object):
     @retry()
     async def _post_request(self, json_request):
         async with self._get_session().post(self._url, json=json_request) as r:
+            result = await r.text()
+
             r.raise_for_status()
 
-            result = await r.text()
             _LOGGER.debug('issue_command response: (%d) %s -- %s', r.status, str(result), str(r.request_info))
             return result
 
     @retry()
     async def _get_request(self, query_params):
         async with self._get_session().get(self._url, params=query_params) as r:
+
             r.raise_for_status()
 
             result = await r.json(content_type=None)
             _LOGGER.debug('get response for (%s): (%d) %s -- %s', r.url, r.status, str(result), str(r.request_info))
             return result['variablevalue']
-
