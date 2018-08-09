@@ -55,29 +55,30 @@ class Control4(object):
 
         _LOGGER.debug('issue_command: cmd %s, device %d, params %s, url %s', command, device_id, str(params), self._url)
 
-        async with aiohttp.ClientSession(raise_for_status=True) as session:
-            json_request = {'command': command, 'deviceid': device_id, 'params': params}
+        json_request = {'command': command, 'deviceid': device_id, 'params': params}
 
-            @retry
-            def post_request():
-                async with session.post(self._url, json=json_request) as r:
-                    result = await r.text()
-                    _LOGGER.debug('issue_command response: (%d) %s', r.status, str(result))
-                    return result
-
-            return await post_request()
+        return await self._post_request(json_request)
 
     async def get(self, device_id, variable_id):
         _LOGGER.debug('get: device_id %d, variable_id %d', device_id, variable_id)
 
+        query_params = {'deviceid': device_id, 'variableid': variable_id}
+
+        return await self._get_request(query_params)
+
+    @retry()
+    async def _post_request(self, json_request):
         async with aiohttp.ClientSession(raise_for_status=True) as session:
-            query_params = {'deviceid': device_id, 'variableid': variable_id}
+            async with session.post(self._url, json=json_request) as r:
+                result = await r.text()
+                _LOGGER.debug('issue_command response: (%d) %s', r.status, str(result))
+                return result
 
-            @retry
-            def get_request():
-                async with session.get(self._url, params=query_params) as r:
-                    result = await r.json(content_type=None)
-                    _LOGGER.debug('get response for (%s): (%d) %s', r.url, r.status, str(result))
-                    return result['variablevalue']
+    @retry()
+    async def _get_request(self, query_params):
+        async with aiohttp.ClientSession(raise_for_status=True) as session:
+            async with session.get(self._url, params=query_params) as r:
+                result = await r.json(content_type=None)
+                _LOGGER.debug('get response for (%s): (%d) %s', r.url, r.status, str(result))
+                return result['variablevalue']
 
-            return await get_request()

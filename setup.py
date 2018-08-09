@@ -4,7 +4,7 @@
 import io
 from setuptools import setup
 
-version = '0.1.6'
+version = '0.1.7'
 
 setup(
     name='python-control4-lite',
@@ -17,8 +17,8 @@ setup(
     packages=['control4',],
     install_requires=['aiohttp>=3.0.0',],
     license='MIT',
-    long_description=io.open('README.txt', encoding='UTF-8').read(),
+    long_description=io.open('README.md', encoding='UTF-8').read(),
     test_suite='nose.collector',
-    tests_require=['nose'],
+    tests_require=['nose', 'aiounittest'],
     python_requires='>=3.6.0'
 )
