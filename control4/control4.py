@@ -5,6 +5,7 @@ import logging
 import time
 import asyncio
 import traceback
+import json
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ def retry(times=20, timeout_secs=10):
                     _LOGGER.debug('Received error response from Control4: %s, %s', str(exc), repr(traceback.format_exc()))
 
                     # if isinstance(exc, aiohttp.ClientResponseError):
-                    #    traceback.print_exc()
+                    traceback.print_exc()
 
                     if timeout_secs is not None:
                         if time.time() - start_time > timeout_secs:
@@ -76,13 +77,16 @@ class Control4(object):
 
     def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None:
-            self._session = aiohttp.ClientSession()
+            connector = aiohttp.TCPConnector(limit=25, force_close=True)
+            self._session = aiohttp.ClientSession(connector=connector)
 
         return self._session
 
     @retry()
     async def _post_request(self, json_request):
-        async with self._get_session().post(self._url, json=json_request) as r:
+        # async with self._get_session().post(self._url, json=json_request) as r:
+
+        async with self._get_session().post(self._url, data=json.dumps(json_request, separators=(',',':')), headers={'content-type': 'application/json'}) as r:
             result = await r.text()
 
             r.raise_for_status()

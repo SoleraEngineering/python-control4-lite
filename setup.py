@@ -4,7 +4,7 @@
 import io
 from setuptools import setup
 
-version = '0.1.11'
+version = '0.1.12'
 
 setup(
     name='python-control4-lite',

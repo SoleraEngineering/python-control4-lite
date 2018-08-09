@@ -59,9 +59,10 @@ class TestControl4(AsyncTestCase):
             await asyncio.sleep(0.1)
 
 
-    # async def test_issue_command_moo(self):
-    #     c4 = Control4(url=get_control4_url())
-    #
-    #     result = await c4.issue_command(1112, 'ON')
-    #
-    #     self.assertEqual(result, 'Command Issued')
+    async def test_issue_command_moo(self):
+        c4 = Control4(url=get_control4_url())
+
+        result = await c4.issue_command(1112, 'ON')
+
+        self.assertEqual(result, 'Command Issued')
+
