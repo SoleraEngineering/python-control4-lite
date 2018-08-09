@@ -3,6 +3,7 @@
 import aiohttp
 import logging
 import time
+import asyncio
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,6 +30,8 @@ def retry(times=10, timeout_secs=10):
                     if timeout_secs is not None:
                         if time.time() - start_time > timeout_secs:
                             raise Control4TimeoutError()
+
+                    await asyncio.sleep(10 * t)
 
             raise Control4RetryError
         return wrapper
@@ -71,7 +74,7 @@ class Control4(object):
         async with aiohttp.ClientSession(raise_for_status=True) as session:
             async with session.post(self._url, json=json_request) as r:
                 result = await r.text()
-                _LOGGER.debug('issue_command response: (%d) %s', r.status, str(result))
+                _LOGGER.debug('issue_command response: (%d) %s -- %s', r.status, str(result), str(r.request_info))
                 return result
 
     @retry()
@@ -79,6 +82,6 @@ class Control4(object):
         async with aiohttp.ClientSession(raise_for_status=True) as session:
             async with session.get(self._url, params=query_params) as r:
                 result = await r.json(content_type=None)
-                _LOGGER.debug('get response for (%s): (%d) %s', r.url, r.status, str(result))
+                _LOGGER.debug('get response for (%s): (%d) %s -- %s', r.url, r.status, str(result), str(r.request_info))
                 return result['variablevalue']
 
