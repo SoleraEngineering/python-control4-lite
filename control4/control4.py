@@ -5,9 +5,6 @@ import logging
 import time
 import asyncio
 import traceback
-import json
-import requests
-import urllib3
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -22,14 +19,17 @@ class Control4TimeoutError(TimeoutError):
 
 def retry(times=20, timeout_secs=10):
     def func_wrapper(f):
-        async def wrapper(*args, **kwargs):
+        async def wrapper(self, *args, **kwargs):
             start_time = time.time()
 
             for t in range(times):
                 try:
-                    return await f(*args, **kwargs)
-                except (aiohttp.ClientError, ConnectionError, requests.RequestException, urllib3.exceptions.HTTPError) as exc:
-                    _LOGGER.debug('Received error response from Control4: %s, %s', str(exc), repr(traceback.format_exc()))
+                    self._stats['requests'] += 1
+                    return await f(self, *args, **kwargs)
+                except (aiohttp.ClientError, ConnectionError) as exc:
+                    self._stats['errors'] += 1
+
+                    _LOGGER.debug('Control4 error: %s, %s', str(exc), repr(traceback.format_exc()))
 
                     # if isinstance(exc, aiohttp.ClientResponseError):
                     traceback.print_exc()
@@ -46,11 +46,12 @@ def retry(times=20, timeout_secs=10):
 
 
 class Control4(object):
-    def __init__(self, url, session=None):
+    def __init__(self, url, session=None, proxy=None):
         _LOGGER.debug('init: %s', url)
         self._url = url
         self._session = session
-        self._urllib3 = urllib3.PoolManager()
+        self._proxy = proxy
+        self._stats = {'errors': 0, 'requests': 0}
 
     async def on(self, device_id):
         return await self.issue_command(device_id, "ON")
@@ -81,48 +82,24 @@ class Control4(object):
     def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None:
             connector = aiohttp.TCPConnector(limit=25, force_close=True)
-            self._session = aiohttp.ClientSession(connector=connector)
+            self._session = aiohttp.ClientSession(connector=connector, skip_auto_headers=['accept-encoding'])
 
         return self._session
 
     @retry()
     async def _post_request(self, json_request):
-        # print('post request')
+        async with self._get_session().post(self._url, json=json_request, proxy=self._proxy) as r:
+            result = await r.text()
 
-        r = self._urllib3.request(
-            'POST',
-            self._url,
-            body=json.dumps(json_request).encode('ascii'),
-            headers={'Content-Type':'application/json'}
-        )
+            _LOGGER.debug('issue_command: (%d) %s -- %s', r.status, str(result), str(r.request_info))
+            print("Result", r.status, str(result), str(r.request_info))
+            r.raise_for_status()
 
-        return r.data.decode('ascii')
-
-        # r = requests.put(self._url, json=json_request)
-        # r.raise_for_status()
-        # return r.text
-
-        # async with self._get_session().post(self._url, json=json_request) as r:
-
-        # async with self._get_session().post(self._url, data=json.dumps(json_request, separators=(',',':')), headers={'content-type': 'application/json'}) as r:
-        #     result = await r.text()
-        #
-        #     r.raise_for_status()
-        #
-        #     _LOGGER.debug('issue_command response: (%d) %s -- %s', r.status, str(result), str(r.request_info))
-        #     return result
-
-        # async with aiohttp.post(self._url, data=json.dumps(json_request, separators=(',',':')), headers={'content-type': 'application/json'}) as r:
-        #     result = await r.text()
-        #
-        #     r.raise_for_status()
-        #
-        #     _LOGGER.debug('issue_command response: (%d) %s -- %s', r.status, str(result), str(r.request_info))
-        #     return result
+            return result
 
     @retry()
     async def _get_request(self, query_params):
-        async with self._get_session().get(self._url, params=query_params) as r:
+        async with self._get_session().get(self._url, params=query_params, proxy=self._proxy) as r:
 
             r.raise_for_status()
 
