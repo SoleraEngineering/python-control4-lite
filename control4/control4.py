@@ -81,8 +81,8 @@ class Control4(object):
 
     def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None:
-            connector = aiohttp.TCPConnector(limit=25, force_close=True)
-            self._session = aiohttp.ClientSession(connector=connector, skip_auto_headers=['accept-encoding'])
+            connector = aiohttp.TCPConnector(force_close=True)
+            self._session = aiohttp.ClientSession(connector=connector)
 
         return self._session
 
